@@ -1,26 +1,26 @@
 # HERMES-PROACTIVE-CORE-V1：分阶段实施计划
 
-> 原始计划快照：设计阶段；尚未开始实施  
-> 目标分支：codex/proactive-core-v1-design  
+> 原始计划快照：设计阶段；阶段状态见第 14 节及最新 HANDOFF-PHASE3.md
+> 目标分支：codex/proactive-core-v1
 > 日期：2026-09-17（Asia/Singapore）  
-> 当前阶段终点：GATE-PROACTIVE-CORE-DESIGN-REVIEW
+> 当前阶段终点：GATE_PROACTIVE_CORE_NOTIFICATION_REVIEW
 
 > 状态更新：Phase 1–2 已在批准范围内完成，离线测试 33/33 通过。最终验收字段与 VPS 只读核验见 PROACTIVE-CORE-PHASE1-2-REPORT.md。
 
 ## 1. 执行约束
 
-> 本节及第 2–13 节记录初始设计 Gate 时的计划快照。审核后当前批准范围与停止点见第 14 节。
+> 本节及第 2–13 节保留原计划脉络；与当前 VPS-only normalization 冲突的条目均以第 14 节和最新 HANDOFF-PHASE3.md 为准。
 
-本计划只描述未来如何实施，不授权本轮实施。当前阶段已经完成的动作仅包括只读核查、互联网调研和四份设计/审计文档。
+当前阶段已获授权：完成 VPS-only normalization、Phase 1–2 回归测试和受严格限制的 VPS Canary dry-run；本计划不授权通知投递、ACT、生产调度变更或模型变更。
 
 以下范围在 ChatGPT 审核和用户另行批准前保持不动：
 
 - VPS Hermes 配置、profile、Cron、Hooks、Webhook、Telegram；
 - OpenViking、Memory、KnowledgeVault；
-- Windows Executor、浏览器会话、cookies/tokens/API keys；
+- 浏览器会话、cookies/tokens/API keys；Proactive Core 不读取或调用 Windows Executor；
 - Cloudflare、模型/provider、Hermes 版本、Gateway/systemd；
 - 现有 fav、knowledge、update-check 业务 Job；
-- Windows Hermes retirement 状态。
+- 当前 Windows Hermes retirement 状态不得作为运行依赖；只读盘点中仅分类并报告相关残留。
 
 ## 2. 阶段总览
 
@@ -29,7 +29,7 @@
 | 0 | 文档、现状、风险和设计评审 | IdeaForge/离线 | 无 | ChatGPT 审核通过 |
 | 1 | Event/Policy 合约与 fixture | IdeaForge/离线 | 无 | schema + policy 测试全绿 |
 | 2 | Shadow detector | 本地/隔离目录 | 不发送、不执行 | 证明去重/静默/升级 |
-| 3 | VPS canary dry-run | VPS，现有 Cron 入口 | 只记录，不通知、不动作 | 前后快照与资源预算通过 |
+| 3 | VPS canary dry-run | VPS 隔离手工进程 | 只记录，不通知、不动作；不改现有 Cron | 前后快照与 Canary 用例通过 |
 | 4 | 只开确定性通知 | VPS | 仅受预算约束的既有 Telegram | 通知质量、恢复和熔断通过 |
 | 5 | 低风险动作/目标候选 | VPS，逐项开关 | 一次一个，需 allowlist | 每个动作独立验收 |
 | 6 | 复盘与 v1 接受 | 文档/运维 | 可回滚 | 用户明确接受 |
@@ -43,7 +43,7 @@
 - Hermes 官方 v0.21.3 release/docs/current source；
 - OpenClaw、Home Assistant、n8n、Temporal、GitHub Actions 对照；
 - Reddit、V2EX、抖音社区样本；
-- 现有 PROACTIVE_RULES、GOALS、Windows Executor 和历史审计材料。
+- 现有 PROACTIVE_RULES、GOALS 与历史审计材料；历史 Windows Executor 资料仅用于只读分类。
 
 ### 产出
 
@@ -53,9 +53,9 @@
 - PROACTIVE-CORE-DESIGN-REVIEW.md
 - D:\Codex Projects\Files\PROACTIVE-CORE-RESEARCH-20260917.html
 
-### 当前停止点
+### 原始停止点
 
-停止在 GATE-PROACTIVE-CORE-DESIGN-REVIEW，等待 ChatGPT 审核。未进行任何实现或部署。
+设计评审 Gate 已在后续阶段通过；这里只保留原始设计阶段记录。当前 Phase 3 范围与 Gate 见第 14 节。
 
 ## 4. 阶段 1：离线合约与测试
 
@@ -89,7 +89,7 @@ tests/
 
 - SSH 到生产写文件；
 - 读取生产 secrets；
-- 调 Telegram、OpenViking、Windows Executor；
+- 调 Telegram、OpenViking 或任何外部执行器；
 - 修改现有 Cron/Hook/Webhook；
 - 安装新服务。
 
@@ -124,7 +124,7 @@ shadow 模式必须：
 
 - 不发送 Telegram；
 - 不修改生产或本地业务状态；
-- 不调用 Windows Executor；
+- 不包含 Windows 输入源、动作源或 dispatch；
 - 不写 OpenViking/KnowledgeVault；
 - 对每个事件记录“如果启用会做什么”和“为什么不做”；
 - 可重复运行且结果稳定。
@@ -140,31 +140,22 @@ shadow 模式必须：
 
 ## 6. 阶段 3：VPS Canary dry-run
 
-需另行取得生产变更授权后，才可以考虑此阶段。推荐先不改原 Job，而是：
+最新 HANDOFF-PHASE3.md 已授权在所有前置项通过后执行 Canary。必须使用隔离手工进程，不得修改或挂接现有 Cron，也不得改写 Hermes/Gateway/systemd 配置：
 
-1. 备份将要涉及的确切文件；
-2. 上传/部署只读或 dry-run 代码；
-3. 保持 PROACTIVE_ENABLED=false；
-4. 保持 NOTIFICATIONS_ENABLED=false；
-5. 保持 ACTIONS_ENABLED=false；
-6. 仅在隔离 state store 中记录 shadow 结果；
-7. 观察至少一个现有巡检周期和一个 Gateway/Telegram 正常周期；
-8. 检查进程、Gateway、既有四个 Job、Executor heartbeat、Knowledge weekly 均未受影响。
+1. 先完成 VPS-only normalization 和活动依赖只读审计，记录准确文件/来源与 SHA-256 基线；
+2. 完整运行 Phase 1–2 测试，必须全部 PASS；
+3. 使用隔离目录和私有 SQLite 状态库，不触碰生产 Event/业务状态；
+4. 仅 Canary 子进程临时设置 PROACTIVE_ENABLED=true；两个通知/动作开关显式 false，父环境和持久配置不变；
+5. 仅接 VPS Cron/Job、Kanban 摘要、Gateway、proactive_monitor 的只读/脱敏样本；不访问 Windows；
+6. 覆盖静默无变化、重复抑制、synthetic failure、恢复、跨进程重启持久性、SQLite lock/fail-closed、Core disabled；
+7. 保存进程退出码、受控 stdout、隔离 SQLite 检查结果和前后运行面只读快照；
+8. Canary 期间 LLM calls=0、Telegram messages=0、actions=0、Windows dependency=NONE。
 
-### Canary 证据
+任何生产配置变化、意外外发、ACT、LLM 调用、非 VPS 依赖、测试失败或无法证明状态隔离，立即终止并保持在当前 Gate；不得继续到通知阶段。
 
-- 部署前后文件 SHA-256；
-- Gateway PID、systemd active、heartbeat 时间；
-- Cron Job 数量、启用状态、最近结果；
-- proactive shadow event count/decision distribution；
-- LLM call count=0；
-- notification/action count=0；
-- 内存、耗时、错误和锁竞争；
-- 旧业务 Job 的成功/失败与 Proactive Core 无因果混淆。
+## 7. 阶段 4：只开确定性通知（本轮未授权）
 
-若不能取得完整前后证据，停止在 Canary，不得进入通知阶段。
-
-## 7. 阶段 4：只开确定性通知
+本阶段不属于当前 Canary 授权。必须先通过 GATE_PROACTIVE_CORE_NOTIFICATION_REVIEW 并取得新的明确授权；本轮 Telegram 主动通知保持关闭。
 
 ### 开启顺序
 
@@ -172,7 +163,7 @@ shadow 模式必须：
 
 1. 只通知新的 Cron failure 且不在 cooldown 内；
 2. 再通知恢复；
-3. 再通知 Executor offline/heartbeat 超时；
+3. 任何未来通知范围均须经单独 ChatGPT Gate 和用户授权；VPS-only 范围之外的来源永久排除；
 4. 暂不通知 Goal stale、Brief 或模型摘要；
 5. 每一步观察后再决定下一步。
 
@@ -187,7 +178,9 @@ shadow 模式必须：
 - 关闭 notification flag 后仍可保留 shadow 审计；
 - URGENT 的定义、目标和人工响应已书面确认。
 
-## 8. 阶段 5：低风险动作与 Goal 候选
+## 8. 阶段 5：低风险动作与 Goal 候选（本轮未授权）
+
+本阶段不属于当前 Canary 授权；本轮 ACT 始终关闭，且 Canary 不执行任何动作。
 
 ### 8.1 低风险动作
 
@@ -245,7 +238,7 @@ shadow 模式必须：
 - delivery failure；
 - Event Store 写入失败；
 - 模型调用量与费用；
-- Gateway/业务 Job/Executor 的回归情况；
+- Gateway/业务 Job 的回归情况；
 - 关闭开关后的停止时间。
 
 没有“用户价值”证据，不扩大范围。
@@ -258,7 +251,7 @@ shadow 模式必须：
 4. 停止/暂停新增 Proactive Job（如后续确有新增）；
 5. 保留审计和事件 state，避免删除证据；
 6. 按精确文件清单恢复上一版；
-7. 验证 Gateway PID/lifecycle、Telegram polling、四个既有 Job、Executor heartbeat；
+7. 验证 Gateway PID/lifecycle、Telegram polling 和既有业务 Job；
 8. 记录回滚原因和最后一次事件。
 
 禁止使用宽泛删除、清空目录、重置仓库、删除用户数据或“顺手清理”作为回滚。
@@ -275,7 +268,7 @@ shadow 模式必须：
 | Hermes data/cron/jobs.json | 未来调整 Job 参数或新增隔离 Job | 未修改 |
 | IdeaForge proactive_core/ | 离线实现与测试 | 未创建 |
 | GOALS.md | 仅未来读取，不应由 Core 自动写 | 未修改 |
-| Windows Executor 文件 | 不在 v1 改造范围 | 未修改 |
+| Windows Executor/heartbeat/action/dispatch | 永久不属于当前 Core 架构 | 不接入、不调用 |
 
 ## 11. 资源与版本策略
 
@@ -288,48 +281,57 @@ shadow 模式必须：
 
 ## 12. Git 与分支状态
 
-用户要求的目标分支是 codex/proactive-core-v1-design。检查结果显示 D:\Codex Projects\IdeaForge 根目录没有 Git 元数据；仅存在若干嵌套项目仓库，不能把其中任一仓库冒充 IdeaForge 根仓库。
-
-因此本阶段：
-
-- 没有初始化根仓库；
-- 没有创建伪分支；
-- 没有提交或合并；
-- 文档直接写入用户指定的 IdeaForge 工作区；
-- 后续若要真正使用该分支，应由用户先指定准确的 Git 仓库边界，再做文档-only 分支操作。
-
-这不是生产阻塞，但必须在审查记录中明确，不能声称分支已创建。
+当前项目中心为 `Felix8686/hermes-proactive-core`，本地检出分支为 `codex/proactive-core-v1`。该仓库边界已由用户确认；不得合并 `main`。IdeaForge 根目录仍不是本项目仓库，也不得初始化或冒充项目中心。
 
 ## 13. 本计划的停止条件
 
 任何一个条件出现，都停在当前阶段并报告：
 
 - 生产状态无法以正确 HERMES_HOME 复核；
-- 发现未授权的 Webhook/Hook/Executor 路径；
+- 发现任何非 VPS 输入或 Windows 执行/dispatch 依赖；
 - Event Store 无法保证幂等；
 - 模型/通知预算没有硬上限；
 - HIGH 风险缺少 ASK 闸门；
 - 无法证明旧业务 Job 未受影响；
-- Gateway/Telegram/Executor heartbeat 出现回归；
+- Gateway/Telegram 或既有业务 Job 出现回归；
 - 用户要求扩大到 Cloudflare、OpenViking、升级、重启或外部发布；
-- ChatGPT 尚未审核设计却要求进入实施。
+- 最新 HANDOFF-PHASE3.md 的任何前置条件未通过；
+- Canary 期间观测到 LLM、外发、ACT、生产配置变化或任何 Windows 依赖。
 
-当前停止在 GATE-PROACTIVE-CORE-DESIGN-REVIEW。
+## 14. 最新交接：VPS-only normalization 与 Phase 3 Canary
 
-## 14. 审核后执行范围与强制停止点
+最新权威来源：`HANDOFF-PHASE3.md`，提交 `2dbc24c145922905646369ef6232a1d595452d71`。它允许在先完成归一化、生产依赖只读审计和 Phase 1–2 全套测试后，执行一次隔离 VPS Canary dry-run。
 
-ChatGPT 设计 Gate 已通过，但附带强制修订。Phase 1–2 仅在隔离目录 proactive-core-v1/ 中实现和测试，输入仅为本地脱敏 JSON fixture；不读取 VPS 输入、Hermes 生产目录或 GOALS.md，不接 Telegram、Executor、OpenViking、Hook、Cron 或其他外部适配器。
+### 当前架构硬约束
 
-Phase 1 必须验证：Event schema 与生命周期、SQLite 事务/权限/版本、policy fixtures、fingerprint 去重、恢复和再失败、severity escalation、过期、并发 tick、提交前崩溃、动作已开始但结果未提交、delivery failure、数据库锁、畸形事件、隐私脱敏、HIGH action、ACT+NOTIFY、预算、熔断及关闭开关。
+- VPS_ONLY = TRUE
+- WINDOWS_HERMES_ROLE = NONE
+- WINDOWS_EXECUTOR_ROLE = NONE
+- WINDOWS_POWER_OFF_IMPACT = NONE
+- Core 仅使用 VPS Cron/Job、Kanban 摘要、Gateway、VPS proactive_monitor 等批准的 VPS 只读输入；不存在 Windows heartbeat/offline/recovered/action source/dispatch。
+- Windows 关机不得影响任何当前 Hermes 生产能力或 Proactive Core 能力。
+- 生产模型/provider、Gateway、Cron、Hook、Webhook、Telegram、systemd 不得变更或重启；不得合并 main。
 
-Phase 2 必须证明：相同输入的 fingerprint/decision 稳定；重复运行不增加通知候选；恢复只产生一次；空输入 stdout 为空；健康路径 LLM calls 为 0；实际通知和动作均为 0。Shadow 输出只能来自固定 renderer，不能输出 Event/audit JSON。
+### 顺序与 Canary 开关
 
-完成后生成 PROACTIVE-CORE-PHASE1-2-REPORT.md，记录全部验收字段、测试证据、生产边界和 PROACTIVE_CORE_GIT_REPO。随后只读核实 VPS 当前 active provider/model 及其来源，不修改模型；最后停在：
+1. 完成设计、计划、实现范围的 VPS-only normalization，并对现有生产引用只读分类为 ACTIVE / STALE / HISTORICAL；HISTORICAL 保留。ACTIVE/STALE 只有在依赖证据明确且变更安全时才做最窄处理，保存精确备份与证据，否则停止。
+2. 只读确认 active Jobs、Cron、Skills 对 Windows Executor 的依赖数均为 0。
+3. 完整运行 Phase 1–2 测试，必须全部 PASS。
+4. 仅在 VPS 运行隔离手工 Canary 子进程，可临时设置 PROACTIVE_ENABLED=true；NOTIFICATIONS 与 ACTIONS 必须显式 false，不写入持久配置或父进程环境。
+5. 使用隔离目录和 SQLite；不改/新增 Cron，不接 Telegram、不执行 Action、不调用 LLM、不访问 Windows。
+6. Canary 需覆盖无变化静默、duplicate suppression、synthetic failure/recovery、进程重启持久性、SQLite lock/fail-closed、Core disabled。
 
-GATE-PROACTIVE-CORE-PRE-PRODUCTION-REVIEW = WAITING_FOR_CHATGPT
+### 最终停止点
 
-该 Gate 未通过前，禁止进入 Phase 3 VPS Production Canary、生产分支、Telegram 主动通知或任何生产 ACT。IdeaForge 根目录 Git 状态保持 PROACTIVE_CORE_GIT_REPO = UNRESOLVED，不得初始化仓库或借用嵌套仓库。
+生成并提交 `PROACTIVE-CORE-PHASE3-CANARY-REPORT.md` 后停止：
 
-### Phase 1–2 完成记录
+`GATE_PROACTIVE_CORE_NOTIFICATION_REVIEW = WAITING_FOR_CHATGPT`
 
-PROACTIVE-CORE-PHASE1-2-REPORT.md 已生成；本地 unittest 结果为 33/33 PASS。只读 VPS 状态显示 OpenAI Codex / gpt-5.6-luna，与 default profile 配置字段匹配；HERMES_PROFILE 未在 systemd 环境中显式设置。生产未变更，Phase 3 未开始，当前 Gate 等待 ChatGPT。
+在 Gate 审核之前，不得开启 Telegram 主动通知或 ACT，也不得部署/合并到 main。
+
+### 本次执行结果（2026-09-17）
+
+- Phase 1–2 全套测试 33/33 PASS；VPS-only active Windows Executor 依赖计数 Jobs/Cron/Skills 均为 0。
+- 隔离手工 Canary dry-run 完成；生产文件在 Canary 窗口内未变更，生产服务未重启，LLM/Telegram/ACT/Windows 依赖均为 0。
+- duplicate/recovery 的独立新进程 SQLite 复核通过；初始过严的 append-only 计数断言及校正证据见 [PROACTIVE-CORE-PHASE3-CANARY-REPORT.md](../PROACTIVE-CORE-PHASE3-CANARY-REPORT.md)。
+- 当前停止于 `GATE_PROACTIVE_CORE_NOTIFICATION_REVIEW = WAITING_FOR_CHATGPT`；通知与动作仍禁止。

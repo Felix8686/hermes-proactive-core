@@ -2,7 +2,7 @@
 
 > 原始版本：候选设计；当前生效状态与审核修订见第 15 节  
 > 日期：2026-09-17（Asia/Singapore）  
-> 运行原则：VPS-first、silent by default、可解释、可暂停、可回滚、默认不自主执行高风险动作。  
+> 运行原则：VPS-only、silent by default、可解释、可暂停、可回滚、默认不自主执行高风险动作。
 > 本文件不改变生产环境。
 
 ## 1. 设计目标与非目标
@@ -15,7 +15,7 @@ Proactive Core v1 只解决一个窄问题：
 
 目标包括：
 
-- 统一 Cron、Gateway、Kanban、Executor heartbeat、KnowledgeVault 状态和用户目标的事件形态。
+- 统一 VPS Cron/Job、Gateway、Kanban 摘要、VPS proactive monitor、KnowledgeVault 状态和用户目标的事件形态。
 - 让 IGNORE、SILENT、ACT、NOTIFY、ASK、URGENT 成为显式决策结果。
 - 提供稳定的 fingerprint、去重、冷却、聚合、恢复和升级规则。
 - 让每次通知都有 reason、source、severity、dedupe_key 和 policy_version。
@@ -27,7 +27,7 @@ Proactive Core v1 只解决一个窄问题：
 
 v1 不做：
 
-- 恢复 Windows Hermes、旧 creator/tech/multi-Hermes；
+- 引入任何 Windows Hermes/Executor 运行角色、事件来源、动作源或 dispatch 路径；
 - 修改生产模型/provider、Gateway、Cron、Webhook、Hook 或 Telegram token；
 - 启用公网 Webhook；
 - 将 OpenViking/KnowledgeVault 变成主动执行目标；
@@ -76,8 +76,8 @@ v1 不新增常驻 daemon。一个现有 no-agent Job 可以在一次运行中�
 | 字段 | 必需 | 说明 |
 |---|---|---|
 | event_id | 是 | 稳定 UUID 或可重建 ID；用于一次观测记录 |
-| event_type | 是 | 如 cron.failure、cron.recovered、goal.stale、executor.offline |
-| source | 是 | cron、gateway、kanban、executor、knowledge、goal、manual |
+| event_type | 是 | 如 cron.failure、cron.recovered、gateway.degraded、goal.stale |
+| source | 是 | vps_cron、gateway、kanban_summary、vps_monitor、knowledge、goal、manual |
 | observed_at | 是 | UTC 时间；展示时转换为用户时区 |
 | subject | 是 | 资源主体，如 Job ID、项目 ID、目标 ID |
 | severity | 是 | LOW/MEDIUM/HIGH |
@@ -359,10 +359,10 @@ DETECTED
 
 ## 11. 隐私、安全与权限
 
-- 采用最小读取范围：只读 Kanban/Cron/heartbeat/目标摘要；未经明确授权不读浏览器会话、私聊正文或任意磁盘。
+- 采用最小读取范围：只读 VPS Kanban/Cron/服务 heartbeat/目标摘要；未经明确授权不读浏览器会话、私聊正文或任意磁盘。
 - Event Store 默认 0600/等效权限，保留期限短于原始日志；payload_ref 指向受控证据。
 - 所有跨系统动作以 allowlist + action_scope + idempotency_key 保护。
-- Windows Executor 只接受既有协议允许的任务，Proactive Core 不直接注入任意命令。
+- Proactive Core 的输入、状态和候选处理仅在 VPS 内；不存在 Windows Executor adapter、Windows dispatch 或 VPS→Windows 执行路径。
 - Telegram 目标必须从现有受控配置解析，不能由事件 payload 提供任意 chat_id。
 - 不把 API key、cookies、OAuth token、SSH 私钥、完整 Telegram 内容写入事件或研究文档。
 - 任何涉及生产升级、Gateway 重启、Webhook 公网暴露、OpenViking 写入、配置/权限变更的动作均停在 ASK/人工审批。
@@ -389,7 +389,7 @@ v1 不需要 Cloudflare 的原因：
 
 ### 纳入
 
-- Cron/Gateway/Executor/Kanban 的只读状态事件；
+- VPS Cron/Gateway/Kanban/proactive_monitor 的只读状态事件；
 - GOALS 只读摘要与 NEXT_ACTION_CANDIDATE；
 - Event schema、fingerprint、去重、cooldown、budget；
 - dry-run/shadow 输出；
@@ -425,7 +425,7 @@ v1 不需要 Cloudflare 的原因：
 
 ## 15. ChatGPT 审核后的强制修订（当前生效规范）
 
-ChatGPT 审核结论为 DESIGN_GATE = APPROVED_WITH_REQUIRED_CHANGES。仅允许离线 Phase 1 与本地 Shadow Phase 2；VPS Production Canary、Telegram 主动投递和任何生产 ACT 均未获准。本节优先于本文早期候选文字，冲突时按本节执行。
+ChatGPT 审核结论为 DESIGN_GATE = APPROVED_WITH_REQUIRED_CHANGES。Event/Policy 与 Shadow 约束继续生效；最新 HANDOFF-PHASE3.md 仅在归一化和全套回归通过后授权隔离 VPS Canary dry-run，不授权 Telegram 主动投递或生产 ACT。本节与第 15.7 节优先于本文早期候选文字，冲突时按最新交接执行。
 
 ### 15.1 Event 生命周期与审计
 
@@ -446,7 +446,7 @@ ChatGPT 审核结论为 DESIGN_GATE = APPROVED_WITH_REQUIRED_CHANGES。仅允许
 
 - 正式 Event Store 使用 SQLite；JSON 仅作 fixture/export。
 - 写入采用事务、WAL + synchronous=FULL、fingerprint/state 唯一约束，并写入 schema_version 与 policy_version。
-- 数据库权限为 POSIX 0600；Windows 使用仅当前用户可访问的等价 ACL，状态目录同样私有。
+- VPS 数据库与状态目录权限为 POSIX 0600；仅离线 Windows 测试环境可用当前用户 ACL 等价保护，该测试兼容性不构成 Hermes 或 Proactive Core 的 Windows 运行依赖。
 - 不持久化 secrets、cookies、token 或完整私聊正文。subject 只允许资源标识符；condition 只保留短状态 token，任意句子与正文按隐私规则丢弃或脱敏。
 - unresolved Event 保留至 resolved；resolved/expired 保留 30 天；aggregate metrics 保留 90 天。
 
@@ -468,4 +468,19 @@ ChatGPT 审核结论为 DESIGN_GATE = APPROVED_WITH_REQUIRED_CHANGES。仅允许
 
 Shadow 必须证明相同输入得到相同 fingerprint/decision、重复运行不增加通知候选、恢复只记录一次、无事件 stdout 为空、健康路径 LLM calls 为 0、实际通知为 0、动作执行为 0。
 
-Phase 1–2 完成后强制停在 GATE-PROACTIVE-CORE-PRE-PRODUCTION-REVIEW = WAITING_FOR_CHATGPT。Gate 报告须只读核实 VPS 当前 Hermes active provider/model，并与审计记录 gpt-5.6-luna 及此前目标 deepseek-v4-flash 对照；不得修改模型。IdeaForge 根目录不是 Git 仓库，PROACTIVE_CORE_GIT_REPO = UNRESOLVED；确定正式仓库边界前不建立生产分支。
+Phase 1–2 原停止点 GATE-PROACTIVE-CORE-PRE-PRODUCTION-REVIEW 已被最新 GitHub HANDOFF-PHASE3.md（提交 2dbc24c145922905646369ef6232a1d595452d71）取代；当前 Canary 约束和停止点见第 15.7 节。
+
+### 15.7 最新 VPS-only normalization 与 Phase 3 边界
+
+本小节与最新 HANDOFF-PHASE3.md 一致，并覆盖本文较早的 Windows Executor 示例与旧 Gate 状态：
+
+- VPS_ONLY = TRUE
+- WINDOWS_HERMES_ROLE = NONE
+- WINDOWS_EXECUTOR_ROLE = NONE
+- WINDOWS_POWER_OFF_IMPACT = NONE
+- 所有生产输入仅来自 VPS Cron/Job、Kanban 摘要、Gateway、VPS proactive monitor 或经明确批准的 VPS 本地只读来源；不得依赖 Windows heartbeat/offline/recovered 事件、Windows action source 或 Windows dispatch。
+- 仅在 Phase 1–2 全套测试通过且生产依赖只读审计通过后，允许执行隔离的 VPS Canary dry-run。不得修改生产 Cron/Gateway/Hermes 配置、不得重启服务、不得持久化开关。
+- Canary 进程可临时设置 PROACTIVE_ENABLED=true；PROACTIVE_NOTIFICATIONS_ENABLED=false、PROACTIVE_ACTIONS_ENABLED=false 必须保持 false。LLM calls、Telegram messages、actions、Windows dependency 必须分别为 0、0、0、NONE。
+- 禁止修改当前 Hermes provider/model；禁止合并 main；禁止恢复 Windows Executor；本轮不授权 Telegram 主动通知或 ACT。
+- 唯一停止点：GATE_PROACTIVE_CORE_NOTIFICATION_REVIEW = WAITING_FOR_CHATGPT。
+- Phase 3 Canary 实际执行结果与证据见 [PROACTIVE-CORE-PHASE3-CANARY-REPORT.md](../PROACTIVE-CORE-PHASE3-CANARY-REPORT.md)；本设计不扩展通知或动作授权。
