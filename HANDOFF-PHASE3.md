@@ -33,7 +33,7 @@ Before any VPS deployment:
 2. Include the Phase 1–2 acceptance report and relevant design docs under `docs/`.
 3. Run the test suite from the repository checkout.
 4. Required result: all existing tests pass; no network, Telegram, action, or production adapters are active.
-5. Confirm kill switches default false:
+5. Confirm code defaults remain false:
    - `PROACTIVE_ENABLED=false`
    - `PROACTIVE_NOTIFICATIONS_ENABLED=false`
    - `PROACTIVE_ACTIONS_ENABLED=false`
@@ -49,34 +49,59 @@ The canary may read real production state, normalize events, evaluate policy, an
 - execute ACT actions;
 - call an LLM;
 - modify existing Hermes Cron jobs;
-- modify Gateway, OpenViking, KnowledgeVault, Memory, Windows Executor, Cloudflare, model/provider, or systemd service configuration;
+- modify Gateway, OpenViking, KnowledgeVault, Memory, Cloudflare, model/provider, or systemd service configuration;
 - restart production services.
 
-The existing four business jobs remain unchanged.
+Windows Executor is not part of the current architecture and must not be used as a Canary source or dependency.
+
+The existing VPS business jobs remain unchanged unless a separate explicit instruction has already retired one of them.
+
+## Canary switch contract — authoritative clarification
+
+The earlier handoff incorrectly required all three runtime switches to remain false while also requiring the Shadow path to process real Canary inputs. That is internally inconsistent because the Shadow entry point correctly exits when `PROACTIVE_ENABLED=false`.
+
+For **Phase 3 manual isolated Canary only**, the following temporary runtime state is explicitly authorized:
+
+- `PROACTIVE_ENABLED=true`
+- `PROACTIVE_NOTIFICATIONS_ENABLED=false`
+- `PROACTIVE_ACTIONS_ENABLED=false`
+
+This is not a production enablement. It applies only to the manually invoked isolated Canary process.
+
+Hard requirements:
+
+1. The source-code defaults in `switches.py` remain false.
+2. Do not persist `PROACTIVE_ENABLED=true` into Hermes production config, systemd, Cron, shell profile, `.env`, or any startup path.
+3. Set `PROACTIVE_ENABLED=true` only in the environment of the single manual Canary invocation (or an equally isolated ephemeral process environment).
+4. Notifications and actions remain false for the entire Phase 3 window.
+5. After each manual Canary invocation, no persistent feature-switch change may remain.
+6. If the Canary cannot run under these constraints, stop and report rather than widening permissions.
 
 ## Canary deployment strategy
 
-Prefer a narrow sidecar-style manual/isolated invocation rather than wiring the Core into the production Cron immediately.
+Prefer a narrow sidecar-style manual/isolated invocation rather than wiring the Core into the production Cron.
 
 Required controls:
 
 - deploy under an isolated path outside the active Hermes runtime code;
 - use a separate SQLite canary DB with restrictive permissions;
-- all three feature switches remain false;
+- source-code defaults for all three switches remain false;
+- only the isolated manual Canary process may temporarily receive `PROACTIVE_ENABLED=true`;
 - read production inputs only through known read-only files/status commands;
 - capture pre/post hashes for every production file that might otherwise be suspected of change;
-- record Gateway PID, `NRestarts`, Telegram connected state, OpenViking health, Windows Executor heartbeat, and existing Cron status before and after each canary window;
+- record Gateway PID, `NRestarts`, Telegram connected state, OpenViking health, and existing Cron status before and after each canary window;
 - do not change the active Hermes model. The current `OpenAI Codex / gpt-5.6-luna` setting is intentional.
 
 ## Canary observation targets
 
 At minimum, feed these real sources through the Shadow path where safely available:
 
-- current Cron/job status and failure/recovery state;
-- Windows Executor heartbeat/online state;
+- current VPS Cron/job status and failure/recovery state;
 - Kanban active-task summary;
 - Gateway health state;
 - existing proactive monitor output, but treat it as probe input rather than user-facing output.
+
+Do **not** include Windows Executor heartbeat/offline/recovery events. The current architecture is VPS-only and Windows is no longer a Hermes execution dependency.
 
 If a source cannot be adapted without modifying production, leave it out and record that limitation. Do not widen scope to make the canary look complete.
 
@@ -92,6 +117,7 @@ For the entire Phase 3 window:
 - no additional Hermes profile is created
 - no model/provider change
 - no new public webhook or listener
+- Windows remains outside the active Hermes architecture
 
 ## Required evidence
 
@@ -103,7 +129,7 @@ Run enough observations to cover at least:
 - recovery handling;
 - restart of the canary process itself, proving persisted dedupe/state survives process restart;
 - SQLite lock/fail-closed behavior;
-- Core disabled behavior.
+- Core disabled behavior (`PROACTIVE_ENABLED=false` must still fail closed with empty output/no processing).
 
 Natural production failures must not be induced merely for testing.
 
@@ -126,11 +152,13 @@ Required final fields:
 - `DEDUPE_PERSISTENCE = PASS / FAIL`
 - `RECOVERY_HANDLING = PASS / FAIL`
 - `KILL_SWITCHES = PASS / FAIL`
-- `GATEWAY_REGRESSION = PASS / FAIL`
-- `CRON_REGRESSION = PASS / FAIL`
-- `EXECUTOR_REGRESSION = PASS / FAIL`
-- `OPENVIKING_REGRESSION = PASS / FAIL`
+- `GATEWAY_REGRESSION = PASS / FAIL / NOT_APPLICABLE_WITH_REASON`
+- `CRON_REGRESSION = PASS / FAIL / NOT_APPLICABLE_WITH_REASON`
+- `OPENVIKING_REGRESSION = PASS / FAIL / NOT_APPLICABLE_WITH_REASON`
+- `WINDOWS_DEPENDENCY = NONE / FOUND`
 - `PHASE3_CANARY = PASS / FAIL`
 - `GATE_PROACTIVE_CORE_NOTIFICATION_REVIEW = WAITING_FOR_CHATGPT`
+
+Do not report `FAIL` merely because a regression check was not executed; use `NOT_APPLICABLE_WITH_REASON` where appropriate. `FAIL` means evidence of an actual failed requirement.
 
 Then **STOP**. Do not enable production notifications or actions. Do not proceed to Phase 4 without a new ChatGPT review.
