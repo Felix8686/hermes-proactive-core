@@ -12,6 +12,7 @@ from .model import NotificationAttempt, NotificationDecision, NotificationState,
 @dataclass(frozen=True, slots=True)
 class BudgetConfig:
     normal_per_day: int = 3
+    normal_fingerprint_cooldown_seconds: int = 6 * 60 * 60
     urgent_per_hour: int = 2
     urgent_per_day: int = 5
     urgent_fingerprint_cooldown_seconds: int = 6 * 60 * 60
@@ -19,6 +20,7 @@ class BudgetConfig:
     def __post_init__(self) -> None:
         if min(
             self.normal_per_day,
+            self.normal_fingerprint_cooldown_seconds,
             self.urgent_per_hour,
             self.urgent_per_day,
             self.urgent_fingerprint_cooldown_seconds,
@@ -35,7 +37,6 @@ class BudgetResult:
 _COUNTED_STATES = {
     NotificationState.PENDING,
     NotificationState.SENT,
-    NotificationState.FAILED,
 }
 
 
@@ -76,6 +77,19 @@ class NotificationBudget:
         ]
 
         if decision == NotificationDecision.NOTIFY:
+            matching = [
+                item
+                for item in attempts
+                if item.fingerprint == fingerprint
+                and item.notification_decision == NotificationDecision.NOTIFY
+            ]
+            matching.sort(key=lambda item: item.occurred_at, reverse=True)
+            if matching:
+                latest_time = datetime.fromisoformat(
+                    matching[0].occurred_at.replace("Z", "+00:00")
+                )
+                if (current - latest_time).total_seconds() < self.config.normal_fingerprint_cooldown_seconds:
+                    return BudgetResult(False, "normal_fingerprint_cooldown")
             ordinary = [
                 item for item in todays
                 if item.notification_decision == NotificationDecision.NOTIFY

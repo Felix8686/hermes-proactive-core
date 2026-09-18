@@ -2,7 +2,21 @@
 
 from __future__ import annotations
 
+from collections import Counter
+from collections.abc import Iterable
+
 from .model import ActionDecision, Decision, Event, NotificationDecision
+
+
+_PHASE4_LABELS = {
+    "cron.failure": "Cron任务异常",
+    "cron.recovered": "Cron任务恢复",
+    "openviking.unhealthy": "OpenViking异常",
+    "openviking.recovered": "OpenViking恢复",
+    "proactive.circuit_breaker_open": "主动巡检暂停保护",
+}
+_PHASE4_TEST_EVENT = "phase4.synthetic.delivery_test"
+_PHASE4_TEST_MESSAGE = "【Proactive Core 测试】通知链路测试成功；这不是异常告警。"
 
 
 class NotificationRenderer:
@@ -26,3 +40,20 @@ class NotificationRenderer:
             message = "检测到需要关注的系统状态变化。"
         prefix = "【Shadow通知候选】" if shadow else "【状态更新】"
         return prefix + message + ("本阶段未发送消息。" if shadow else "")
+
+    def render_phase4_aggregate(self, events: Iterable[Event]) -> str:
+        """Render one short, fixed-template Phase 4 owner notification."""
+        items = tuple(events)
+        if not items:
+            return ""
+        if len(items) == 1 and items[0].event_type == _PHASE4_TEST_EVENT:
+            return _PHASE4_TEST_MESSAGE
+
+        counts = Counter(item.event_type for item in items)
+        if any(event_type not in _PHASE4_LABELS for event_type in counts):
+            raise ValueError("unsupported Phase 4 renderer event")
+        summary = "；".join(
+            f"{_PHASE4_LABELS[event_type]}{count}项"
+            for event_type, count in sorted(counts.items())
+        )
+        return f"【主动巡检】{summary}。"

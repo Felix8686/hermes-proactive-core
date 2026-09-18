@@ -81,6 +81,7 @@ class ShadowDetector:
                 day = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
                 protection_window = max(
                     60 * 60,
+                    self.budget.config.normal_fingerprint_cooldown_seconds,
                     self.budget.config.urgent_fingerprint_cooldown_seconds,
                 )
                 history_start = min(
