@@ -203,9 +203,12 @@ def _latest_cron_output(
             header_time = datetime.fromisoformat(
                 header_run_at.replace("Z", "+00:00")
             )
+            if header_time.tzinfo is None:
+                # Hermes formats this header in host-local time without an
+                # offset; interpret it in the same local timezone.
+                header_time = header_time.astimezone()
             if (
-                header_time.tzinfo is None
-                or abs(
+                abs(
                     (header_time.astimezone(timezone.utc) - completed).total_seconds()
                 )
                 > 300

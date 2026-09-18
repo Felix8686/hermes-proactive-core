@@ -512,7 +512,9 @@ class Phase4TestCase(unittest.TestCase):
         job_id = "job-phase4-envelope"
         output_dir = home / "cron" / "output" / job_id
         output_dir.mkdir(parents=True)
-        run_time = "2026-09-18T00:00:03Z"
+        completed_at = datetime(2026, 9, 18, 0, 0, 3, tzinfo=timezone.utc)
+        run_time = completed_at.astimezone().strftime("%Y-%m-%d %H:%M:%S")
+        last_run_at = completed_at.isoformat().replace("+00:00", "Z")
         output_path = output_dir / "2026-09-18_00-00-02.md"
         result = self.runner.run_events([make_event()], now=BASE_TIME)
         rendered = result.stdout_text.removesuffix("\n")
@@ -544,7 +546,7 @@ class Phase4TestCase(unittest.TestCase):
                             "no_agent": True,
                             "script": "proactive_core_v1_runner.py",
                             "deliver": TARGET,
-                            "last_run_at": run_time,
+                            "last_run_at": last_run_at,
                             "last_status": "ok",
                             "last_delivery_error": None,
                         }
