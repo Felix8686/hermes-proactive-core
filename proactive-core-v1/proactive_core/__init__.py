@@ -1,4 +1,4 @@
-"""Offline-first Proactive Core contracts; no Hermes, network, or delivery adapters."""
+"""Versioned Proactive Core contracts; integration boundaries are explicit modules."""
 
 from .model import (
     ActionDecision,
