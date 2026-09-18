@@ -507,6 +507,77 @@ class Phase4TestCase(unittest.TestCase):
         self.assertEqual(observation.last_output_sha256, hashlib.sha256(output).hexdigest())
         self.assertNotIn(TARGET, repr(observation))
 
+    def test_no_agent_cron_envelope_reconciles_exact_stdout(self) -> None:
+        home = Path(self.temp.name) / "hermes-envelope"
+        job_id = "job-phase4-envelope"
+        output_dir = home / "cron" / "output" / job_id
+        output_dir.mkdir(parents=True)
+        run_time = "2026-09-18T00:00:03Z"
+        output_path = output_dir / "2026-09-18_00-00-02.md"
+        result = self.runner.run_events([make_event()], now=BASE_TIME)
+        rendered = result.stdout_text.removesuffix("\n")
+        target_hash = hashlib.sha256(TARGET.encode("utf-8")).hexdigest()
+
+        def cron_document(document_job_id: str) -> str:
+            return (
+                "# Cron Job: proactive-review-v1\n\n"
+                f"**Job ID:** {document_job_id}\n"
+                f"**Run Time:** {run_time}\n"
+                "**Mode:** no_agent (script)\n\n"
+                "---\n\n"
+                f"{rendered}\n"
+            )
+
+        output_path.write_bytes(cron_document("another-job").encode("utf-8"))
+        output_time = datetime(2026, 9, 18, 0, 0, 2, tzinfo=timezone.utc).timestamp()
+        os.utime(output_path, (output_time, output_time))
+        jobs_path = home / "cron" / "jobs.json"
+        jobs_path.parent.mkdir(parents=True, exist_ok=True)
+        jobs_path.write_text(
+            json.dumps(
+                {
+                    "jobs": [
+                        {
+                            "id": job_id,
+                            "name": "proactive-review-v1",
+                            "enabled": True,
+                            "no_agent": True,
+                            "script": "proactive_core_v1_runner.py",
+                            "deliver": TARGET,
+                            "last_run_at": run_time,
+                            "last_status": "ok",
+                            "last_delivery_error": None,
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        wrong_header = read_cron_delivery_observation(
+            home,
+            trusted_target_sha256=target_hash,
+        )
+        self.assertIsNone(wrong_header.last_output_sha256)
+
+        output_path.write_bytes(cron_document(job_id).encode("utf-8"))
+        os.utime(output_path, (output_time, output_time))
+        observation = read_cron_delivery_observation(
+            home,
+            trusted_target_sha256=target_hash,
+        )
+        self.assertEqual(
+            observation.last_output_sha256,
+            hashlib.sha256(rendered.encode("utf-8")).hexdigest(),
+            repr(observation),
+        )
+        reconciled = reconcile_pending_deliveries(
+            self.store,
+            observation,
+            now="2026-09-18T00:00:04Z",
+        )
+        self.assertEqual((reconciled.sent, reconciled.failed), (1, 0))
+        self.assertEqual(self.transitions()[-1].state, NotificationState.SENT)
+
     def test_config_rejects_bool_schema_version_and_action_enablement(self) -> None:
         base = {
             "schema_version": 1,

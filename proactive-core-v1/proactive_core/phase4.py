@@ -186,7 +186,38 @@ def _latest_cron_output(
         output_time = datetime.fromtimestamp(stat_result.st_mtime, timezone.utc)
         if abs((output_time - completed).total_seconds()) > 300:
             return None, None
-        output_hash = hashlib.sha256(latest.read_bytes()).hexdigest()
+        output_text = latest.read_bytes().decode("utf-8")
+        if output_text.startswith("# Cron Job: "):
+            header, separator, body = output_text.partition("\n\n---\n\n")
+            header_lines = header.splitlines()
+            if (
+                not separator
+                or len(header_lines) != 5
+                or header_lines[2] != f"**Job ID:** {job_id}"
+                or not header_lines[3].startswith("**Run Time:** ")
+                or header_lines[4] != "**Mode:** no_agent (script)"
+                or not body.endswith("\n")
+            ):
+                return None, None
+            header_run_at = header_lines[3].removeprefix("**Run Time:** ")
+            header_time = datetime.fromisoformat(
+                header_run_at.replace("Z", "+00:00")
+            )
+            if (
+                header_time.tzinfo is None
+                or abs(
+                    (header_time.astimezone(timezone.utc) - completed).total_seconds()
+                )
+                > 300
+            ):
+                return None, None
+            # Hermes persists a Markdown envelope for no-agent script runs,
+            # but delivers the enclosed stdout verbatim. Hash that exact body,
+            # excluding only the single newline added by the envelope.
+            output_text = body[:-1]
+        if not output_text:
+            return None, None
+        output_hash = hashlib.sha256(output_text.encode("utf-8")).hexdigest()
         output_time_text = output_time.isoformat(timespec="microseconds").replace("+00:00", "Z")
         return output_hash, output_time_text
     except (OSError, TypeError, ValueError):
