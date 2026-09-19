@@ -36,4 +36,8 @@ Phase 1 covers versioned contracts, deterministic policy, privacy redaction, tra
 
 Phase 2 covers local fixture processing only. It proves deterministic fingerprints/decisions, deduplicated candidates, recovery behavior, empty output on no event, zero LLM calls on the health path, zero delivery, and zero action execution.
 
-Phase 4 implements notification-only integration and a controlled canary; its deployed status and evidence are recorded in `PROACTIVE-CORE-PHASE4-NOTIFICATION-REPORT.md`. No production action, production model change, or merge to `main` is part of this directory.
+Phase 4 implements notification-only integration and a controlled canary; its deployed status and evidence are recorded in `PROACTIVE-CORE-PHASE4-NOTIFICATION-REPORT.md`. H2 adds the offline-only `goal_progress.py` normalization, deterministic prefilter, one-candidate candidate engine, dedupe/rejection/stale-state suppression, privacy filtering, and semantic-call budget seam. It does not connect to Cron, Telegram, GOALS.md, `/goal`, a provider/model, or ACT. No production action, production model change, or merge to `main` is part of this directory.
+
+H2 offline checks:
+
+    python3 -m unittest discover -s tests -v

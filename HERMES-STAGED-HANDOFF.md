@@ -124,10 +124,11 @@ Do not run H2 in the same session.
 ---
 
 # STAGE H2 — Phase 5 implementation + offline tests only
+STATUS: **COMPLETED**
 
-STATUS: **AUTHORIZED NOW**
+Completed in the current H2 handoff. Production Shadow Canary, notifications, and ACT were not started.
 
-The user explicitly authorized H2. This is the only stage Hermes may execute now.
+The user explicitly authorized H2.
 
 Authorized scope only:
 
