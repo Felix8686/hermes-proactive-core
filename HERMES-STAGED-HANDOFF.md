@@ -45,19 +45,21 @@ Known completed work:
 - Phase 4A controlled Telegram delivery and duplicate suppression
 - Phase 4 implementation tests reached 52/52 PASS at commit `124a07c`
 
-Current unresolved item in GitHub:
+Current state in GitHub:
 
-- `PROACTIVE-CORE-PHASE4-NOTIFICATION-REPORT.md` is not yet present on the development branch.
-- Therefore Phase 4B final observation/report remains the current work item.
-- `HANDOFF-PHASE5.md` exists but is PREPARED / NOT YET AUTHORIZED.
+- Phase 4 final report exists and Phase 4 notification canary passed.
+- H1 completed at commit `32b6e5f1beafb1ef68e7a526a3c605552854de5e`.
+- The user explicitly authorized H2 on 2026-09-19.
+- `HANDOFF-PHASE5.md` is authorized for H2 implementation + offline tests only. Phase 5A/5B production canaries remain locked.
 
 ---
 
 # STAGE H1 — Finish Phase 4B and close Phase 4
 
-STATUS: **AUTHORIZED NOW**
+STATUS: **COMPLETED**
 
-This is the only stage Hermes may execute now.
+Completed at commit `32b6e5f1beafb1ef68e7a526a3c605552854de5e`.
+Do not rerun H1 unless a later handoff explicitly requests revalidation.
 
 ## H1 objective
 
@@ -123,11 +125,11 @@ Do not run H2 in the same session.
 
 # STAGE H2 — Phase 5 implementation + offline tests only
 
-STATUS: **LOCKED**
+STATUS: **AUTHORIZED NOW**
 
-Do not execute until the user explicitly approves continuation and GitHub is updated to set H2 to AUTHORIZED.
+The user explicitly authorized H2. This is the only stage Hermes may execute now.
 
-Planned scope only:
+Authorized scope only:
 
 - review the final Phase 4 report;
 - implement Goal Progress inputs/prefilter/candidate logic from `HANDOFF-PHASE5.md`;
@@ -138,11 +140,28 @@ Planned scope only:
 - no ACT;
 - stop and report back to the user.
 
-Expected stop gate:
+H2 acceptance requirements:
+
+- start from the latest branch state and review the final Phase 4 report;
+- implement only Goal Progress inputs / deterministic prefilter / candidate logic / semantic-call budget scaffolding required by `HANDOFF-PHASE5.md`;
+- add or extend offline tests;
+- run the complete regression suite;
+- do not deploy Phase 5A to production;
+- do not enable Goal Progress Telegram notifications;
+- do not enable ACT;
+- do not alter the current model/provider;
+- do not merge `main`;
+- keep VPS_ONLY = TRUE and WINDOWS_DEPENDENCY = NONE.
+
+At completion, push code/tests/evidence to `codex/proactive-core-v1`, report the commit SHA, notify the user, then STOP.
+
+Required stop gate:
 
 `STAGE_H2_COMPLETE = YES`
 `NEXT_STAGE_AUTHORIZED = NO`
 `USER_DECISION_REQUIRED = YES`
+
+Do not run H3 in the same session.
 
 ---
 
