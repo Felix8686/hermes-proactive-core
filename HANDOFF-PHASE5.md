@@ -1,16 +1,25 @@
-# Phase 5 handoff — Goal Progress (PREPARED, NOT YET AUTHORIZED)
+# Phase 5 handoff — Goal Progress (H2 AUTHORIZED ONLY)
 
 ## Authorization gate
 
-This handoff is prepared in advance, but Phase 5 MUST NOT start until ChatGPT has reviewed the final Phase 4 report and explicitly changed the gate to APPROVED.
+Phase 4 has been reviewed and passed. The user explicitly authorized **H2 only** on 2026-09-19.
 
-Required before execution:
+H2 authorization includes:
 
-- `PROACTIVE-CORE-PHASE4-NOTIFICATION-REPORT.md` exists on `codex/proactive-core-v1`;
-- Phase 4 report shows notification canary passed;
-- ChatGPT explicitly approves Phase 4 and authorizes Phase 5 in a later instruction.
+- implement Goal Progress inputs, deterministic prefilter, candidate logic, dedupe/budget scaffolding and required offline test coverage;
+- run the complete offline regression suite;
+- commit and push evidence to `codex/proactive-core-v1`.
 
-Until then: STOP after Phase 4. Do not infer approval from the existence of this file.
+H2 does **not** authorize:
+
+- Phase 5A production Shadow Canary;
+- Phase 5B Goal Progress Telegram notifications;
+- ACT;
+- automatic modification of GOALS.md or /goal state;
+- model/provider changes;
+- merge to `main`.
+
+At H2 completion, STOP with `STAGE_H2_COMPLETE = YES`, `NEXT_STAGE_AUTHORIZED = NO`, and `USER_DECISION_REQUIRED = YES`. H3 requires a separate user authorization.
 
 ## Phase 5 objective
 
