@@ -637,6 +637,7 @@ class Phase4TestCase(unittest.TestCase):
             ),
             encoding="utf-8",
         )
+        (runtime / "config.json").chmod(0o600)
         cron_dir = home / "cron"
         cron_dir.mkdir(parents=True)
         (cron_dir / "jobs.json").write_text(
