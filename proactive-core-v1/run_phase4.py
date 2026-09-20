@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from proactive_core.goal_progress_runtime import run_goal_progress_shadow
 from proactive_core.model import utc_iso
 from proactive_core.phase4 import (
     PHASE4_TEST_EVENT_ID,
@@ -164,6 +165,11 @@ def _run(argv: list[str] | None = None) -> int:
         state_dir = runtime_dir / STATE_DIR_NAME
         store = SQLiteEventStore(state_dir)
         store.prune_expired(now=datetime.now(timezone.utc))
+        try:
+            run_goal_progress_shadow(hermes_home)
+        except Exception:
+            _record_error(runtime_dir, "goal_progress_shadow_failed")
+
         observation = read_cron_delivery_observation(
             hermes_home,
             trusted_target_sha256=config.delivery_target_sha256,
