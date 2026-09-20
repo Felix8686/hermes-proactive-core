@@ -1,25 +1,30 @@
-# Phase 5 handoff — Goal Progress (H2 AUTHORIZED ONLY)
+# Phase 5 handoff — Goal Progress (H3 SHADOW CANARY AUTHORIZED)
 
 ## Authorization gate
 
-Phase 4 has been reviewed and passed. The user explicitly authorized **H2 only** on 2026-09-19.
+Phase 4 passed. H2 implementation/offline tests completed and were accepted at commit `04990877a7065b6839e9128a8a57afdd90c07f9f`.
 
-H2 authorization includes:
+The user explicitly authorized **H3 / Phase 5A Shadow Canary only** on 2026-09-20.
 
-- implement Goal Progress inputs, deterministic prefilter, candidate logic, dedupe/budget scaffolding and required offline test coverage;
-- run the complete offline regression suite;
-- commit and push evidence to `codex/proactive-core-v1`.
+H3 authorization includes:
 
-H2 does **not** authorize:
+- deploy Goal Progress in Shadow mode on the VPS;
+- read current authorized VPS-side goal/project state;
+- run deterministic prefilter and, when eligible, the bounded semantic review path;
+- store/audit candidates without delivering Goal Progress notifications;
+- observe the required real scheduled window and evaluate grounding/quality;
+- collect regression evidence and push a Phase 5A report to `codex/proactive-core-v1`.
 
-- Phase 5A production Shadow Canary;
+H3 does **not** authorize:
+
 - Phase 5B Goal Progress Telegram notifications;
 - ACT;
 - automatic modification of GOALS.md or /goal state;
 - model/provider changes;
+- Windows dependency;
 - merge to `main`.
 
-At H2 completion, STOP with `STAGE_H2_COMPLETE = YES`, `NEXT_STAGE_AUTHORIZED = NO`, and `USER_DECISION_REQUIRED = YES`. H3 requires a separate user authorization.
+At H3 completion, STOP with `STAGE_H3_COMPLETE = YES`, `NEXT_STAGE_AUTHORIZED = NO`, and `USER_DECISION_REQUIRED = YES`. H4 requires a separate user authorization.
 
 ## Phase 5 objective
 
