@@ -49,8 +49,9 @@ Current state in GitHub:
 
 - Phase 4 final report exists and Phase 4 notification canary passed.
 - H1 completed at commit `32b6e5f1beafb1ef68e7a526a3c605552854de5e`.
-- The user explicitly authorized H2 on 2026-09-19.
-- `HANDOFF-PHASE5.md` is authorized for H2 implementation + offline tests only. Phase 5A/5B production canaries remain locked.
+- H2 completed and was independently accepted at commit `04990877a7065b6839e9128a8a57afdd90c07f9f`.
+- The user explicitly authorized H3 on 2026-09-20.
+- `HANDOFF-PHASE5.md` is now authorized for Phase 5A Goal Progress Shadow Canary only. H4/H5 remain locked.
 
 ---
 
@@ -168,11 +169,11 @@ Do not run H3 in the same session.
 
 # STAGE H3 — Phase 5A Goal Progress Shadow Canary
 
-STATUS: **LOCKED**
+STATUS: **AUTHORIZED NOW**
 
-Do not execute until separately authorized.
+The user explicitly authorized H3. This is the only stage Hermes may execute now.
 
-Planned scope only:
+Authorized scope only:
 
 - deploy Goal Progress in SHADOW mode;
 - inspect real VPS goal/project state read-only;
@@ -182,7 +183,21 @@ Planned scope only:
 - limited semantic model use only as allowed by `HANDOFF-PHASE5.md`;
 - observe required window;
 - report candidate quality;
+- preserve `PROACTIVE_ACTIONS_ENABLED=false` and no Goal Progress Telegram delivery;
+- use semantic reasoning only after deterministic prefilter and no more than the Phase 5 daily budget;
+- do not modify GOALS.md, /goal state, current model/provider, unrelated Cron jobs, or main;
+- push the Phase 5A Shadow evidence/report to `codex/proactive-core-v1`;
 - STOP for user decision.
+
+H3 acceptance requires at least 3 real scheduled Goal Progress observations or 24 hours, whichever comes first. Do not manufacture project state changes merely to produce a candidate.
+
+Required stop gate:
+
+`STAGE_H3_COMPLETE = YES`
+`NEXT_STAGE_AUTHORIZED = NO`
+`USER_DECISION_REQUIRED = YES`
+
+Do not run H4 in the same session.
 
 ---
 
