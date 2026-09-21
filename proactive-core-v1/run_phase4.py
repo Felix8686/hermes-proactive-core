@@ -166,7 +166,10 @@ def _run(argv: list[str] | None = None) -> int:
         store = SQLiteEventStore(state_dir)
         store.prune_expired(now=datetime.now(timezone.utc))
         try:
-            run_goal_progress_shadow(hermes_home)
+            run_goal_progress_shadow(
+                hermes_home,
+                observation_source="diagnostic" if args.reconcile_only else "scheduled",
+            )
         except Exception:
             _record_error(runtime_dir, "goal_progress_shadow_failed")
 

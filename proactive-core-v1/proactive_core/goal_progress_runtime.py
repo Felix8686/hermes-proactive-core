@@ -20,6 +20,78 @@ MAX_AUDIT_BYTES = 512 * 1024
 STATE_NAME = "goal-progress-shadow.json"
 
 
+def _canonical_iso(value: str) -> str:
+    """Return an offset-aware timestamp in canonical UTC form."""
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        raise ValueError("timestamp must include an offset")
+    return parsed.astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def _cron_execution_context(hermes_home: Path) -> dict[str, Any] | None:
+    """Read the newest built-in Cron attempt without changing the ledger."""
+    jobs_path = hermes_home / "cron" / "jobs.json"
+    execution_path = hermes_home / "cron" / "executions.db"
+    try:
+        raw = json.loads(jobs_path.read_text(encoding="utf-8"))
+        jobs = raw.get("jobs", raw) if isinstance(raw, dict) else raw
+        job = next(row for row in jobs if isinstance(row, dict) and row.get("name") == "proactive-review-v1")
+        job_id = job["id"]
+        conn = sqlite3.connect(f"file:{execution_path}?mode=ro", uri=True)
+        try:
+            row = conn.execute(
+                "SELECT id, source, status, claimed_at, started_at, finished_at, error "
+                "FROM executions WHERE job_id=? ORDER BY claimed_at DESC, id DESC LIMIT 1",
+                (job_id,),
+            ).fetchone()
+        finally:
+            conn.close()
+        if not row or row[1] != "builtin":
+            return None
+        return {
+            "execution_id": row[0],
+            "source": row[1],
+            "status": row[2],
+            "scheduled_at": _canonical_iso(row[3]),
+            "started_at": _canonical_iso(row[4]) if row[4] else None,
+            "finished_at": _canonical_iso(row[5]) if row[5] else None,
+            "error": row[6],
+        }
+    except (OSError, KeyError, StopIteration, TypeError, ValueError, sqlite3.Error, json.JSONDecodeError):
+        return None
+
+
+def _reconcile_execution_evidence(audit: dict[str, Any], hermes_home: Path) -> None:
+    """Backfill terminal result evidence for previously recorded attempts."""
+    execution_path = hermes_home / "cron" / "executions.db"
+    try:
+        conn = sqlite3.connect(f"file:{execution_path}?mode=ro", uri=True)
+        try:
+            for run in audit["runs"]:
+                execution_id = run.get("execution_id")
+                if not isinstance(execution_id, str):
+                    run.setdefault("evidence_status", "legacy_unlinked")
+                    continue
+                row = conn.execute(
+                    "SELECT status, started_at, finished_at, error FROM executions WHERE id=?",
+                    (execution_id,),
+                ).fetchone()
+                if not row:
+                    run["evidence_status"] = "execution_missing"
+                    continue
+                run["cron_result_status"] = row[0]
+                run["cron_started_at"] = _canonical_iso(row[1]) if row[1] else None
+                run["cron_finished_at"] = _canonical_iso(row[2]) if row[2] else None
+                run["cron_error"] = row[3]
+                run["evidence_status"] = "verified_success" if row[0] == "completed" else (
+                    "verified_failure" if row[0] == "failed" else "pending"
+                )
+        finally:
+            conn.close()
+    except (OSError, ValueError, sqlite3.Error):
+        return
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
@@ -150,11 +222,21 @@ def _write_state(path: Path, ledger: GoalProgressLedger, audit: dict[str, Any]) 
             os.unlink(temp_name)
 
 
-def run_goal_progress_shadow(hermes_home: Path, *, now: str | None = None, health_tick: bool = False) -> dict[str, Any]:
-    """Run one real read-only observation and return audit counters only."""
-    observed_at = now or _now()
+def run_goal_progress_shadow(
+    hermes_home: Path,
+    *,
+    now: str | None = None,
+    health_tick: bool = False,
+    observation_source: str = "scheduled",
+) -> dict[str, Any]:
+    """Run one read-only observation and return auditable counters."""
+    if observation_source not in {"scheduled", "diagnostic"}:
+        raise ValueError("invalid observation source")
+    observed_at = _canonical_iso(now) if now else _now()
     state_path = hermes_home / "proactive-core-v1" / STATE_NAME
     ledger, audit = _load_state(state_path)
+    _reconcile_execution_evidence(audit, hermes_home)
+    execution = _cron_execution_context(hermes_home) if observation_source == "scheduled" else None
     sources: list[dict[str, Any]] = []
     goals_path = hermes_home / "GOALS.md"
     if goals_path.is_file() and not goals_path.is_symlink():
@@ -164,7 +246,8 @@ def run_goal_progress_shadow(hermes_home: Path, *, now: str | None = None, healt
     engine = GoalProgressEngine(ledger=ledger, semantic_call=None)
     result = engine.run(sources, now=observed_at, health_tick=health_tick)
     candidate = result.candidate.as_dict() if result.candidate else None
-    audit["runs"].append({
+    run_record = {
+        "observation_source": observation_source,
         "observed_at": observed_at,
         "source_count": len(sources),
         "prefiltered_count": result.prefiltered_count,
@@ -175,7 +258,21 @@ def run_goal_progress_shadow(hermes_home: Path, *, now: str | None = None, healt
         "candidate_fingerprint": candidate.get("fingerprint") if candidate else None,
         "goal_notification_sent": 0,
         "actions_executed": 0,
-    })
+        "evidence_status": "not_scheduled",
+    }
+    if execution:
+        run_record.update({
+            "execution_id": execution["execution_id"],
+            "scheduled_at": execution["scheduled_at"],
+            "cron_result_status": execution["status"],
+            "cron_started_at": execution["started_at"],
+            "cron_finished_at": execution["finished_at"],
+            "cron_error": execution["error"],
+            "evidence_status": "pending" if execution["status"] in {"claimed", "running"} else (
+                "verified_success" if execution["status"] == "completed" else "verified_failure"
+            ),
+        })
+    audit["runs"].append(run_record)
     if candidate:
         audit["candidates"].append(candidate)
     _write_state(state_path, ledger, audit)
