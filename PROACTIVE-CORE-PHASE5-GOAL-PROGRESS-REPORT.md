@@ -5,6 +5,8 @@
 - Scope: H3 / Phase 5A Goal Progress Shadow Canary only
 - Observation started: 2026-09-20T05:22:40Z (UTC)
 - H4/H5: locked and not run
+- Evidence repair commit: `f6c40b8158d928ebfc00bac75692f3462d3b9baa` (full SHA on branch)
+- `WAITING_FOR_SCHEDULED_OBSERVATIONS = YES`
 
 ## Status
 
@@ -56,6 +58,8 @@ GATE_PROACTIVE_CORE_SAFE_ACT_REVIEW = WAITING_FOR_CHATGPT
 - Exit code: 0.
 - stdout bytes: 0; stderr bytes: 0.
 - Live audit run: 1 manual diagnostic run, `source_count=5`, `prefiltered_count=0`, `candidate_fingerprint=null`, `goal_notification_sent=0`, `actions_executed=0`, `semantic_calls=0`.
+- Evidence repair deployed: scheduled audit records now carry `execution_id`, canonical UTC `scheduled_at`, and reconcile later to the Cron ledger terminal result; diagnostic runs are explicitly marked `observation_source=diagnostic` and are excluded from H3 counts.
+- Post-deployment read-only diagnostic: exit `0`, stdout/stderr empty; latest audit record `observation_source=diagnostic`, `evidence_status=not_scheduled`.
 - Current live audit file: `/home/mzer8/hermes-shadow/data/proactive-core-v1/goal-progress-shadow.json`.
 - `proactive-review-v1`: enabled, `no_agent=true`, script remains `proactive_core_v1_runner.py`; last recorded scheduled run before deployment was `2026-09-20T12:35:27+08:00`, next scheduled run `2026-09-20T14:35:27+08:00`.
 - Gateway: active.
@@ -92,4 +96,4 @@ USER_DECISION_REQUIRED = YES
 H4_TECHNICALLY_READY = NO (pending real scheduled observation evidence and review)
 ```
 
-Next action: allow the existing `proactive-review-v1` schedule to produce at least 3 real observations or wait 24 hours, then review this audit file and update this report. Do not start H4/H5 automatically.
+Next action: allow the existing `proactive-review-v1` schedule to produce at least 3 real scheduled observations after commit `f6c40b8`, then re-read the exact Cron execution IDs and terminal statuses and update this report. Do not start H4/H5 automatically.
